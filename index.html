@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Control de Pacientes</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+
+  <!-- ============ Cargando ============ -->
+  <section data-view="loading" class="center-screen">
+    <div class="spinner" aria-label="Cargando"></div>
+  </section>
+
+  <!-- ============ Falta configuración ============ -->
+  <section data-view="config" class="center-screen" hidden>
+    <div class="card auth-card">
+      <h1>Configuración pendiente</h1>
+      <p>Edita <code>js/config.js</code> y coloca la URL y la <em>anon key</em> de tu proyecto de Supabase.
+        Revisa el archivo <code>README.md</code> para los pasos.</p>
+    </div>
+  </section>
+
+  <!-- ============ Error de conexión ============ -->
+  <section data-view="error" class="center-screen" hidden>
+    <div class="card auth-card">
+      <h1>No se pudo conectar</h1>
+      <p id="error-detalle" class="muted"></p>
+      <button class="btn primary" onclick="location.reload()">Reintentar</button>
+    </div>
+  </section>
+
+  <!-- ============ Crear administrador ============ -->
+  <section data-view="setup" class="center-screen" hidden>
+    <form id="form-setup" class="card auth-card" autocomplete="on">
+      <div class="brand">⚕️</div>
+      <h1>Crear administrador</h1>
+      <p class="muted">Este será el usuario dueño de la aplicación. Solo puede existir uno.</p>
+      <label>Correo electrónico
+        <input type="email" name="email" required autocomplete="username">
+      </label>
+      <label>Contraseña (mínimo 8 caracteres)
+        <input type="password" name="password" required minlength="8" autocomplete="new-password">
+      </label>
+      <label>Repetir contraseña
+        <input type="password" name="password2" required minlength="8" autocomplete="new-password">
+      </label>
+      <button class="btn primary block" type="submit">Crear administrador</button>
+      <p class="small"><a href="#" data-goto="login">Ya creé el administrador, quiero ingresar</a></p>
+    </form>
+  </section>
+
+  <!-- ============ Login ============ -->
+  <section data-view="login" class="center-screen" hidden>
+    <form id="form-login" class="card auth-card" autocomplete="on">
+      <div class="brand">⚕️</div>
+      <h1>Iniciar sesión</h1>
+      <p id="login-aviso" class="aviso" hidden></p>
+      <label>Correo electrónico
+        <input type="email" name="email" required autocomplete="username">
+      </label>
+      <label>Contraseña
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <button class="btn primary block" type="submit">Ingresar</button>
+    </form>
+  </section>
+
+  <!-- ============ Acceso denegado ============ -->
+  <section data-view="denied" class="center-screen" hidden>
+    <div class="card auth-card">
+      <h1>Acceso no autorizado</h1>
+      <p class="muted">Esta cuenta no es la administradora de la aplicación.</p>
+      <button class="btn" data-action="logout">Cerrar sesión</button>
+    </div>
+  </section>
+
+  <!-- ============ App principal ============ -->
+  <section data-view="main" hidden>
+    <header class="topbar">
+      <div class="topbar-title">⚕️ Control de Pacientes</div>
+      <div class="topbar-user">
+        <span id="user-email" class="muted small"></span>
+        <button class="btn ghost small" data-action="logout">Salir</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button data-go="pacientes" class="active">Pacientes</button>
+      <button data-go="dosis">Próximas dosis</button>
+    </nav>
+
+    <main class="container">
+
+      <!-- ----- Lista de pacientes ----- -->
+      <section data-tab="pacientes">
+        <div class="toolbar">
+          <input id="buscar" type="search" placeholder="Buscar por CI, nombre o apellido…">
+          <button id="btn-nuevo-paciente" class="btn primary">+ Nuevo paciente</button>
+        </div>
+        <p id="contador" class="muted small"></p>
+        <div class="card flush">
+          <table id="tabla-pacientes" class="tabla clickable">
+            <thead>
+              <tr><th>CI</th><th>Paciente</th><th>Edad</th><th>Último peso</th><th>IMC</th><th>Próxima dosis</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p id="sin-pacientes" class="vacio" hidden>No hay pacientes registrados.</p>
+        </div>
+      </section>
+
+      <!-- ----- Próximas dosis ----- -->
+      <section data-tab="dosis" hidden>
+        <div class="toolbar">
+          <div id="dosis-resumen" class="resumen-chips"></div>
+          <button id="btn-exportar" class="btn">⬇ Exportar CSV</button>
+        </div>
+        <div class="card flush">
+          <table id="tabla-dosis" class="tabla clickable">
+            <thead>
+              <tr><th>Próxima dosis</th><th>Estado</th><th>Paciente</th><th>Medicamento</th><th>Última dosis</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p id="sin-dosis" class="vacio" hidden>Todavía no hay dosis registradas.</p>
+        </div>
+      </section>
+
+      <!-- ----- Ficha del paciente ----- -->
+      <section data-tab="detalle" hidden>
+        <button id="btn-volver" class="btn ghost small">← Volver a pacientes</button>
+
+        <div class="card">
+          <div class="ficha-head">
+            <h2 id="ficha-nombre"></h2>
+            <div class="acciones">
+              <button id="btn-editar-paciente" class="btn small">Editar</button>
+              <button id="btn-eliminar-paciente" class="btn danger small">Eliminar</button>
+            </div>
+          </div>
+          <dl id="ficha-datos" class="datos"></dl>
+        </div>
+
+        <div id="ficha-resumen" class="stats"></div>
+
+        <div class="toolbar">
+          <h3>Historial de registros</h3>
+          <button id="btn-nuevo-registro" class="btn primary">+ Registrar peso y dosis</button>
+        </div>
+        <div class="card flush">
+          <table id="tabla-registros" class="tabla">
+            <thead>
+              <tr><th>Fecha de registro</th><th>Peso</th><th>IMC</th><th>Medicamento</th><th>Dosis</th><th>Próxima dosis</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p id="sin-registros" class="vacio" hidden>Este paciente aún no tiene registros.</p>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ Diálogo: paciente ============ -->
+  <dialog id="dlg-paciente">
+    <form id="form-paciente" method="dialog">
+      <h2 id="dlg-paciente-titulo">Nuevo paciente</h2>
+      <div class="grid2">
+        <label>Nombre
+          <input name="nombre" required maxlength="80" autocomplete="off">
+        </label>
+        <label>Apellido
+          <input name="apellido" required maxlength="80" autocomplete="off">
+        </label>
+        <label>CI
+          <input name="ci" required minlength="3" maxlength="20" autocomplete="off">
+        </label>
+        <label>Fecha de nacimiento
+          <input name="fecha_nacimiento" type="date" required min="1900-01-01">
+        </label>
+        <label>Altura (cm)
+          <input name="altura_cm" type="number" required min="30" max="250" step="0.1" inputmode="decimal">
+        </label>
+        <div class="calc">
+          <span class="muted small">Edad</span>
+          <strong id="pac-edad">—</strong>
+        </div>
+      </div>
+      <div class="dlg-acciones">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ Diálogo: registro ============ -->
+  <dialog id="dlg-registro">
+    <form id="form-registro" method="dialog">
+      <h2>Nuevo registro</h2>
+      <p class="muted small" id="reg-paciente"></p>
+      <div class="grid2">
+        <label>Peso (kg)
+          <input name="peso_kg" type="number" required min="1" max="400" step="0.1" inputmode="decimal">
+        </label>
+        <div class="calc">
+          <span class="muted small">IMC (altura <span id="reg-altura"></span>)</span>
+          <strong id="reg-imc">—</strong>
+        </div>
+        <label>Medicamento
+          <input name="medicamento" required maxlength="100" list="lista-medicamentos" autocomplete="off">
+        </label>
+        <label>Dosis
+          <input name="dosis" required maxlength="50" list="lista-dosis" autocomplete="off">
+        </label>
+        <div class="calc">
+          <span class="muted small">Fecha de registro</span>
+          <strong id="reg-fecha"></strong>
+        </div>
+        <div class="calc">
+          <span class="muted small">Próxima dosis (+7 días)</span>
+          <strong id="reg-proxima"></strong>
+        </div>
+      </div>
+      <div class="dlg-acciones">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary">Guardar registro</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="lista-medicamentos">
+    <option value="Tirzepatida (Mounjaro)">
+    <option value="Semaglutida (Ozempic)">
+    <option value="Semaglutida (Wegovy)">
+    <option value="Dulaglutida (Trulicity)">
+  </datalist>
+  <datalist id="lista-dosis">
+    <option value="2.5 mg"><option value="5 mg"><option value="7.5 mg">
+    <option value="10 mg"><option value="12.5 mg"><option value="15 mg">
+    <option value="0.25 mg"><option value="0.5 mg"><option value="1 mg">
+    <option value="1.7 mg"><option value="2.4 mg">
+  </datalist>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
