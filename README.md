@@ -38,15 +38,15 @@ App web (HTML + JavaScript) para registrar pacientes, su peso, el IMC, el medica
    git add .
    git commit -m "Primera versión"
    git branch -M main
-   git remote add origin https://github.com/Mare731710/Tirze.git
+   git remote add origin https://github.com/MariaEstherFR/Tirze.git
    git push -u origin main
    ```
 3. En el repositorio, ve a **Settings → Pages → Source: Deploy from a branch → main / (root)** y guarda.
-4. La app quedará en `https://Mare731710.github.io/Tirze/`.
+4. La app quedará en `https://MariaEstherFR.github.io/Tirze/`.
 
 ### 3. Configurar la autenticación en Supabase
 1. **Authentication → URL Configuration**:
-   - **Site URL:** `https://Mare731710.github.io/Tirze/`
+   - **Site URL:** `https://MariaEstherFR.github.io/Tirze/`
    - **Redirect URLs:** agrega esa misma URL (y `http://localhost:5500/` si vas a hacer pruebas en tu computadora).
 
 ### 4. Crear el administrador
