@@ -523,9 +523,12 @@
 
   // ================= Inicio =================
   async function iniciar() {
-    if (!cfg.SUPABASE_URL || /TU-PROYECTO/.test(cfg.SUPABASE_URL) || !window.supabase) {
+    if (!cfg.SUPABASE_URL || /TU-PROYECTO/.test(cfg.SUPABASE_URL)) {
       mostrarVista('config');
       return;
+    }
+    if (!window.supabase) {
+      return mostrarError({ message: 'No se pudo descargar la librería de Supabase. Revisa tu conexión a internet y recarga la página.' });
     }
     sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
     enlazarEventos();
