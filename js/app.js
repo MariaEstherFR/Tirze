@@ -34,6 +34,16 @@
   // Hoy en formato YYYY-MM-DD según la zona horaria de Bolivia
   const hoyISO = () => new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA }).format(new Date());
 
+  // Fecha y hora actual de Bolivia para <input type="datetime-local"> (YYYY-MM-DDTHH:MM)
+  function ahoraLocal() {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      timeZone: ZONA_HORARIA, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  }
+  const OFFSET_BOLIVIA = '-04:00';   // Bolivia no usa horario de verano
+
   function partes(iso) {
     const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
     return { y, m, d };
@@ -572,12 +582,18 @@
     }
     $('#reg-paciente').textContent = `${p.nombre} ${p.apellido} · CI ${p.ci} · ${calcularEdad(p.fecha_nacimiento)} años`;
     $('#reg-altura').textContent = `${fmtNum(p.altura_cm)} cm`;
-    $('#reg-fecha').textContent = fmtFechaHora(new Date());
-    $('#reg-proxima').textContent = fmtFecha(sumarDias(hoyISO(), 7));
+    f.fecha_registro.value = ahoraLocal();
+    f.fecha_registro.max = ahoraLocal();
+    actualizarProximaPreview();
     actualizarIMCPreview();
     actualizarFrascoPreview();
     $('#dlg-registro').showModal();
     f.peso_kg.focus();
+  }
+
+  function actualizarProximaPreview() {
+    const v = $('#form-registro').fecha_registro.value;
+    $('#reg-proxima').textContent = v ? fmtFecha(sumarDias(v.slice(0, 10), 7)) : '—';
   }
 
   function actualizarIMCPreview() {
@@ -599,6 +615,12 @@
     if (!p.saldo) {
       caja.textContent = 'Este paciente no tiene frasco registrado; la dosis no se descontará. Usa "Vender frasco" si le vendiste uno.';
       caja.classList.add('warn');
+      return;
+    }
+    // Las dosis anteriores a la primera compra de frasco no se descuentan
+    const primeraVenta = state.ventasPaciente[state.ventasPaciente.length - 1];
+    if (primeraVenta && f.fecha_registro.value && f.fecha_registro.value.slice(0, 10) < fechaLocal(primeraVenta.fecha_venta)) {
+      caja.textContent = 'Esta dosis es anterior a la primera compra de frasco del paciente: se guarda en el historial sin descontarse del frasco.';
       return;
     }
     const disp = Number(p.saldo.mg_disponibles);
@@ -623,13 +645,17 @@
     const f = e.target;
     const dosisMg = num(f.dosis_mg.value);
     if (!(dosisMg > 0 && dosisMg <= 100)) return toast('Escribe la dosis en mg, por ejemplo 2.5', 'error');
-    // La fecha, el IMC y la próxima dosis los calcula el servidor
+    const fecha = f.fecha_registro.value;
+    if (!fecha) return toast('Indica la fecha de registro', 'error');
+    if (fecha > ahoraLocal()) return toast('La fecha de registro no puede ser futura', 'error');
+    // El IMC y la próxima dosis (fecha + 7 días) los calcula el servidor
     const datos = {
       paciente_id: state.actual.id,
       peso_kg: Number(f.peso_kg.value),
       medicamento: f.medicamento.value.trim(),
       dosis: `${dosisMg} mg`,
       dosis_mg: dosisMg,
+      fecha_registro: `${fecha}:00${OFFSET_BOLIVIA}`,
     };
     ocupado(f, true);
     const { error } = await sb.from('registros').insert(datos);
@@ -1271,6 +1297,7 @@
     const fr = $('#form-registro');
     fr.addEventListener('submit', guardarRegistro);
     fr.peso_kg.addEventListener('input', actualizarIMCPreview);
+    fr.fecha_registro.addEventListener('input', () => { actualizarProximaPreview(); actualizarFrascoPreview(); });
     fr.dosis_mg.addEventListener('input', actualizarFrascoPreview);
     fr.medicamento.addEventListener('input', actualizarFrascoPreview);
 

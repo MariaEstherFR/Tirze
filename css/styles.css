@@ -93,6 +93,7 @@ code { background: var(--primary-soft); padding: .1em .35em; border-radius: 4px;
 .aviso { background: var(--primary-soft); color: var(--primary); padding: 10px 12px; border-radius: var(--radius-sm); margin: 0; font-size: 13px; }
 .aviso.warn { background: var(--warn-bg); color: var(--warn); }
 .aviso.bad { background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+dialog form > .aviso { margin: 0 20px; }
 
 /* ---------- Encabezado ---------- */
 .topbar {

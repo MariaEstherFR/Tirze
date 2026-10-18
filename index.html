@@ -17,11 +17,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=7">
+  <link rel="stylesheet" href="css/styles.css?v=8">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="js/config.js?v=7"></script>
-  <script src="js/app.js?v=7" defer></script>
+  <script src="js/config.js?v=8"></script>
+  <script src="js/app.js?v=8" defer></script>
 </head>
 <body>
 
@@ -396,10 +396,9 @@
         <label>Dosis (mg)
           <input name="dosis_mg" type="text" required inputmode="decimal" list="lista-dosis" placeholder="Ej: 2.5" autocomplete="off">
         </label>
-        <div class="calc">
-          <span class="muted small">Fecha de registro</span>
-          <strong id="reg-fecha"></strong>
-        </div>
+        <label>Fecha de registro
+          <input name="fecha_registro" type="datetime-local" required>
+        </label>
         <div class="calc">
           <span class="muted small">Próxima dosis (+7 días)</span>
           <strong id="reg-proxima"></strong>
