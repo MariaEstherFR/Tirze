@@ -4,4 +4,6 @@
 window.APP_CONFIG = {
   SUPABASE_URL: 'https://lrwdhpydogwpquuxflla.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyd2RocHlkb2d3cHF1dXhmbGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNzg1NTUsImV4cCI6MjEwNzg1NDU1NX0.2AiQCKp5ZG1PLMdDWa6j7HXzEoeAXWVnU7ebN8d87QY',
+  // Clave pública para notificaciones (la privada está guardada solo en Supabase)
+  VAPID_PUBLIC_KEY: 'BP1QbIaa3ZQmXYgpJeXgBLpYDuCHzW9bv-X-A_uk7OFA_Aoe15iHbKeWWUHkqh2_0-TMG3kupD_eFLdgk-qVwl0',
 };

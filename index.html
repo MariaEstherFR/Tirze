@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#556ee6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,11 +15,13 @@
   <title>Control de Pacientes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="css/styles.css?v=6">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css">
+  <link rel="stylesheet" href="css/styles.css?v=7">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js?v=6"></script>
-  <script src="js/app.js?v=6" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="js/config.js?v=7"></script>
+  <script src="js/app.js?v=7" defer></script>
 </head>
 <body>
 
@@ -111,27 +113,77 @@
   <!-- ============ App principal ============ -->
   <section data-view="main" hidden>
     <header class="topbar">
-      <div class="topbar-title">⚕️ Control de Pacientes</div>
+      <div class="topbar-title"><span class="logo-icon"><i class="bx bx-injection"></i></span><span>Tirze<b>Control</b></span></div>
       <div class="topbar-user">
         <span id="user-email" class="muted small"></span>
-        <button class="btn ghost small" data-action="logout">Salir</button>
+        <div class="avatar" id="user-avatar"></div>
+        <button class="btn ghost small" data-action="logout" title="Cerrar sesión"><i class="bx bx-log-out"></i> Salir</button>
       </div>
     </header>
 
     <nav class="tabs">
-      <button data-go="pacientes" class="active">Pacientes</button>
-      <button data-go="dosis">Próximas dosis</button>
-      <button data-go="inventario">Inventario</button>
-      <button data-go="admins" id="tab-admins" hidden>Administradores</button>
+      <button data-go="inicio" class="active"><i class="bx bx-home-circle"></i>Inicio</button>
+      <button data-go="pacientes"><i class="bx bx-user"></i>Pacientes</button>
+      <button data-go="dosis"><i class="bx bx-calendar-check"></i>Próximas dosis</button>
+      <button data-go="inventario"><i class="bx bx-package"></i>Inventario</button>
+      <button data-go="admins" id="tab-admins" hidden><i class="bx bx-shield-quarter"></i>Administradores</button>
     </nav>
 
     <main class="container">
+      <div class="page-head">
+        <h4 id="page-title">Inicio</h4>
+        <div class="breadcrumb">TirzeControl / <b id="page-crumb">Inicio</b></div>
+      </div>
+
+      <!-- ----- Inicio (panel) ----- -->
+      <section data-tab="inicio">
+        <div class="dash-grid">
+          <div class="dash-col">
+            <div class="card welcome">
+              <div class="welcome-top">
+                <div><h5>¡Bienvenida de nuevo!</h5><p>Panel de control de tirzepatida</p></div>
+                <div class="ilustracion">👩‍⚕️</div>
+              </div>
+              <div class="welcome-body">
+                <div><div class="welcome-avatar" id="welcome-avatar"></div><h6 id="welcome-nombre"></h6><span class="muted small" id="welcome-rol"></span></div>
+                <div class="kpi"><strong id="kpi-pacientes">0</strong><span>Pacientes</span></div>
+                <div class="kpi"><strong id="kpi-semana">0</strong><span>Dosis esta semana</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <h4 class="card-title">Ganancia del mes</h4>
+              <div class="earning">
+                <div>
+                  <span class="muted small">Este mes</span>
+                  <h3 id="mes-ganancia">Bs 0,00</h3>
+                  <p class="small muted" id="mes-detalle"></p>
+                  <button class="btn primary small" data-go-btn="inventario">Ver inventario <i class="bx bx-right-arrow-alt"></i></button>
+                </div>
+                <canvas class="dona" id="grafico-dona" width="120" height="120"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="dash-col">
+            <div class="stats" id="dash-stats"></div>
+            <div class="card">
+              <div class="chart-head">
+                <h4 class="card-title">Dosis aplicadas</h4>
+                <div class="seg" id="seg-periodo">
+                  <button data-periodo="semana" class="active">Semanas</button>
+                  <button data-periodo="mes">Meses</button>
+                </div>
+              </div>
+              <div class="chart-box"><canvas id="grafico-dosis"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- ----- Lista de pacientes ----- -->
-      <section data-tab="pacientes">
+      <section data-tab="pacientes" hidden>
         <div class="toolbar">
           <input id="buscar" type="search" placeholder="Buscar por CI, nombre o apellido…">
-          <button id="btn-nuevo-paciente" class="btn primary">+ Nuevo paciente</button>
+          <button id="btn-nuevo-paciente" class="btn primary"><i class="bx bx-plus"></i> Nuevo paciente</button>
         </div>
         <p id="contador" class="muted small"></p>
         <div class="card flush">
@@ -147,9 +199,22 @@
 
       <!-- ----- Próximas dosis ----- -->
       <section data-tab="dosis" hidden>
+        <div class="card notif">
+          <div class="notif-texto">
+            <div class="stat-icon"><i class="bx bx-bell"></i></div>
+            <div>
+              <h3>Aviso diario a las 7:00</h3>
+              <p class="muted small" id="notif-estado" style="margin:4px 0 0">Comprobando…</p>
+            </div>
+          </div>
+          <div class="acciones">
+            <button id="btn-notif-prueba" class="btn soft" hidden><i class="bx bx-send"></i> Enviar prueba</button>
+            <button id="btn-notif" class="btn primary" hidden></button>
+          </div>
+        </div>
         <div class="toolbar">
           <div id="dosis-resumen" class="resumen-chips"></div>
-          <button id="btn-exportar" class="btn">⬇ Exportar CSV</button>
+          <button id="btn-exportar" class="btn"><i class="bx bx-download"></i> Exportar CSV</button>
         </div>
         <div class="card flush">
           <table id="tabla-dosis" class="tabla clickable">
@@ -169,8 +234,8 @@
         <div class="toolbar">
           <h3>Productos y stock</h3>
           <div class="acciones">
-            <button id="btn-nuevo-producto" class="btn">+ Nuevo producto</button>
-            <button id="btn-nueva-compra" class="btn primary">+ Registrar compra</button>
+            <button id="btn-nuevo-producto" class="btn"><i class="bx bx-plus"></i> Nuevo producto</button>
+            <button id="btn-nueva-compra" class="btn primary"><i class="bx bx-cart-add"></i> Registrar compra</button>
           </div>
         </div>
         <div class="card flush">
@@ -214,7 +279,7 @@
             Solo tú, como dueña, puedes agregarlos o quitarlos.</p>
           <form id="form-invitar" class="invitar">
             <input type="email" name="email" required placeholder="correo@ejemplo.com" autocomplete="off">
-            <button class="btn primary" type="submit">Invitar administrador</button>
+            <button class="btn primary" type="submit"><i class="bx bx-user-plus"></i> Invitar administrador</button>
           </form>
           <p class="muted small">Le llegará un correo para crear su contraseña. Si ya tenía cuenta, solo se le da acceso.</p>
         </div>
@@ -228,14 +293,14 @@
 
       <!-- ----- Ficha del paciente ----- -->
       <section data-tab="detalle" hidden>
-        <button id="btn-volver" class="btn ghost small">← Volver a pacientes</button>
+        <button id="btn-volver" class="btn ghost small" style="margin-bottom:12px"><i class="bx bx-arrow-back"></i> Volver a pacientes</button>
 
         <div class="card">
           <div class="ficha-head">
             <h2 id="ficha-nombre"></h2>
             <div class="acciones">
-              <button id="btn-editar-paciente" class="btn small">Editar</button>
-              <button id="btn-eliminar-paciente" class="btn danger small">Eliminar</button>
+              <button id="btn-editar-paciente" class="btn small"><i class="bx bx-edit"></i> Editar</button>
+              <button id="btn-eliminar-paciente" class="btn danger small"><i class="bx bx-trash"></i> Eliminar</button>
             </div>
           </div>
           <dl id="ficha-datos" class="datos"></dl>
@@ -243,11 +308,16 @@
 
         <div id="ficha-resumen" class="stats"></div>
 
+        <div class="card" id="card-peso" hidden>
+          <h4 class="card-title">Evolución del peso</h4>
+          <div class="chart-box bajo"><canvas id="grafico-peso"></canvas></div>
+        </div>
+
         <div class="toolbar">
           <h3>Historial de registros</h3>
           <div class="acciones">
-            <button id="btn-vender" class="btn">🧪 Vender frasco</button>
-            <button id="btn-nuevo-registro" class="btn primary">+ Registrar peso y dosis</button>
+            <button id="btn-vender" class="btn soft"><i class="bx bx-cart"></i> Vender frasco</button>
+            <button id="btn-nuevo-registro" class="btn primary"><i class="bx bx-plus"></i> Registrar peso y dosis</button>
           </div>
         </div>
         <div class="card flush">

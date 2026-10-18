@@ -16,7 +16,7 @@
   const state = {
     esDuenia: false, emailUsuario: '',
     pacientes: [], actual: null, registros: [], ventasPaciente: [],
-    inventario: [], compras: [], ventas: [], admins: [],
+    inventario: [], compras: [], ventas: [], admins: [], dosisRecientes: [],
   };
 
   // ================= Utilidades =================
@@ -122,6 +122,25 @@
 
   const chip = (o) => `<span class="chip ${o.cls}">${esc(o.txt)}</span>`;
 
+  // Tarjeta de resumen con ícono circular. `valor` y `extra` pueden traer HTML ya escapado.
+  const stat = (etiqueta, valor, { extra = '', icono = 'bx-pulse', color = '' } = {}) => `
+    <div class="stat ${color ? `c-${color}` : ''}">
+      <div class="stat-body"><span class="stat-label">${esc(etiqueta)}</span><strong>${valor}</strong>${extra}</div>
+      <div class="stat-icon"><i class="bx ${icono}"></i></div>
+    </div>`;
+
+  // Fecha local (Bolivia) de una marca de tiempo, en formato YYYY-MM-DD
+  const fechaLocal = (ts) => new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA }).format(new Date(ts));
+  const lunesDe = (iso) => sumarDias(iso, -((new Date(aUTC(iso)).getUTCDay() + 6) % 7));
+  const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const PALETA = ['#556ee6', '#34c38f', '#f1b44c', '#50a5f1', '#f46a6a', '#74788d', '#6f42c1'];
+  const graficos = {};
+  function graficar(id, config) {
+    if (!window.Chart) return;
+    graficos[id]?.destroy();
+    graficos[id] = new window.Chart($(`#${id}`), config);
+  }
+
   let toastTimer;
   function toast(msg, tipo = 'ok') {
     const t = $('#toast');
@@ -165,11 +184,20 @@
     $$('[data-view]').forEach((v) => { v.hidden = v.dataset.view !== nombre; });
   }
 
+  const TITULOS = {
+    inicio: 'Inicio', pacientes: 'Pacientes', dosis: 'Próximas dosis',
+    inventario: 'Inventario', admins: 'Administradores', detalle: 'Ficha del paciente',
+  };
+
   function irA(tab) {
     $$('[data-tab]').forEach((s) => { s.hidden = s.dataset.tab !== tab; });
     const activa = tab === 'detalle' ? 'pacientes' : tab;
     $$('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.go === activa));
-    if (tab === 'dosis') renderDosis();
+    $('#page-title').textContent = TITULOS[tab];
+    $('#page-crumb').textContent = TITULOS[tab];
+    $(`.tabs button[data-go="${activa}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (tab === 'inicio') renderInicio();
+    if (tab === 'dosis') { renderDosis(); estadoNotificaciones(); }
     if (tab === 'pacientes') renderPacientes();
     if (tab === 'inventario') cargarInventario();
     if (tab === 'admins') cargarAdmins();
@@ -210,11 +238,16 @@
     state.esDuenia = !!esDuenia;
     state.emailUsuario = session.user.email;
     $('#tab-admins').hidden = !state.esDuenia;
+    const usuario = session.user.email.split('@')[0];
     $('#user-email').textContent = session.user.email;
+    $('#user-avatar').textContent = usuario.slice(0, 2).toUpperCase();
+    $('#welcome-avatar').textContent = usuario.charAt(0).toUpperCase();
+    $('#welcome-nombre').textContent = usuario;
+    $('#welcome-rol').textContent = state.esDuenia ? 'Dueña' : 'Administrador';
     mostrarVista('main');
     iniciarVigilanciaInactividad();
-    await Promise.all([cargarPacientes(), cargarInventario()]);
-    irA('pacientes');
+    await Promise.all([cargarPacientes(), cargarInventario(), cargarDosisRecientes()]);
+    irA('inicio');
   }
 
   function mostrarError(err) {
@@ -462,22 +495,42 @@
     const primero = regs[regs.length - 1];
     const fr = estadoFrasco(p);
 
-    const tarjetaFrasco = `
-      <div class="stat"><span>Frasco</span>
-        <strong>${fr.mg === null ? '—' : fmtMg(fr.mg)}</strong>${chip(fr)}
-        <small>${p.saldo ? `${p.saldo.frascos_comprados} frasco(s) comprados` : 'Usa "Vender frasco" para registrarlo'}</small></div>`;
+    const tarjetaFrasco = stat('Frasco', fr.mg === null ? '—' : fmtMg(fr.mg), {
+      extra: `${chip(fr)}<small>${p.saldo ? `${p.saldo.frascos_comprados} frasco(s) comprados` : 'Usa "Vender frasco" para registrarlo'}</small>`,
+      icono: 'bx-test-tube', color: 'warning',
+    });
 
     if (u) {
       const dif = regs.length > 1 ? Number(u.peso_kg) - Number(primero.peso_kg) : null;
-      $('#ficha-resumen').innerHTML = `
-        <div class="stat"><span>Peso actual</span><strong>${fmtNum(u.peso_kg)} kg</strong>
-          ${dif !== null ? `<small class="${dif <= 0 ? 'txt-ok' : 'txt-bad'}">${dif > 0 ? '+' : ''}${fmtNum(dif)} kg desde el inicio</small>` : ''}</div>
-        <div class="stat"><span>IMC</span><strong>${fmtNum(u.imc, 2)}</strong>${chip(categoriaIMC(Number(u.imc)))}</div>
-        <div class="stat"><span>Tratamiento</span><strong>${esc(u.dosis)}</strong><small>${esc(u.medicamento)}</small></div>
-        <div class="stat"><span>Próxima dosis</span><strong>${fmtFecha(u.proxima_dosis)}</strong>${chip(estadoDosis(u.proxima_dosis))}</div>
-        ${tarjetaFrasco}`;
+      $('#ficha-resumen').innerHTML =
+        stat('Peso actual', `${fmtNum(u.peso_kg)} kg`, {
+          extra: dif !== null ? `<small class="${dif <= 0 ? 'txt-ok' : 'txt-bad'}">${dif > 0 ? '+' : ''}${fmtNum(dif)} kg desde el inicio</small>` : '',
+          icono: 'bx-body',
+        }) +
+        stat('IMC', fmtNum(u.imc, 2), { extra: chip(categoriaIMC(Number(u.imc))), icono: 'bx-line-chart', color: 'info' }) +
+        stat('Tratamiento', esc(u.dosis), { extra: `<small>${esc(u.medicamento)}</small>`, icono: 'bx-injection', color: 'success' }) +
+        stat('Próxima dosis', fmtFecha(u.proxima_dosis), { extra: chip(estadoDosis(u.proxima_dosis)), icono: 'bx-calendar', color: 'danger' }) +
+        tarjetaFrasco;
     } else {
       $('#ficha-resumen').innerHTML = tarjetaFrasco;
+    }
+
+    // Gráfico de evolución del peso
+    $('#card-peso').hidden = regs.length < 2;
+    if (regs.length >= 2) {
+      const orden = [...regs].reverse();
+      graficar('grafico-peso', {
+        type: 'line',
+        data: {
+          labels: orden.map((r) => fmtFecha(fechaLocal(r.fecha_registro)).slice(0, 5)),
+          datasets: [{
+            label: 'Peso (kg)', data: orden.map((r) => Number(r.peso_kg)),
+            borderColor: '#556ee6', backgroundColor: 'rgba(85,110,230,.12)', fill: true, tension: .35,
+            pointBackgroundColor: '#556ee6', pointRadius: 4,
+          }],
+        },
+        options: opcionesGrafico({ leyenda: false }),
+      });
     }
 
     $('#sin-registros').hidden = regs.length > 0;
@@ -585,7 +638,7 @@
 
     $('#dlg-registro').close();
     toast('Registro guardado');
-    await cargarPacientes();
+    await Promise.all([cargarPacientes(), cargarDosisRecientes()]);
     await cargarRegistros();
   }
 
@@ -595,7 +648,7 @@
     const { error } = await sb.from('registros').delete().eq('id', id);
     if (error) return toast(mensajeError(error), 'error');
     toast('Registro eliminado');
-    await cargarPacientes();
+    await Promise.all([cargarPacientes(), cargarDosisRecientes()]);
     await cargarRegistros();
   }
 
@@ -696,11 +749,12 @@
     const ingresos = suma((p) => p.ingresos);
     const ganancia = ingresos - suma((p) => p.costo_vendido);
 
-    $('#inv-resumen').innerHTML = `
-      <div class="stat"><span>Frascos en stock</span><strong>${stock}</strong><small>Valor: ${fmtBs(valorStock)}</small></div>
-      <div class="stat"><span>Total invertido</span><strong>${fmtBs(invertido)}</strong><small>${suma((p) => p.frascos_comprados)} frascos comprados</small></div>
-      <div class="stat"><span>Total vendido</span><strong>${fmtBs(ingresos)}</strong><small>${suma((p) => p.frascos_vendidos)} frascos vendidos</small></div>
-      <div class="stat"><span>Ganancia</span><strong class="${ganancia >= 0 ? 'txt-ok' : 'txt-bad'}">${fmtBs(ganancia)}</strong><small>Sobre frascos vendidos</small></div>`;
+    $('#inv-resumen').innerHTML =
+      stat('Frascos en stock', stock, { extra: `<small>Valor: ${fmtBs(valorStock)}</small>`, icono: 'bx-package' }) +
+      stat('Total invertido', fmtBs(invertido), { extra: `<small>${suma((p) => p.frascos_comprados)} frascos comprados</small>`, icono: 'bx-wallet', color: 'info' }) +
+      stat('Total vendido', fmtBs(ingresos), { extra: `<small>${suma((p) => p.frascos_vendidos)} frascos vendidos</small>`, icono: 'bx-purchase-tag-alt', color: 'warning' }) +
+      stat('Ganancia', `<span class="${ganancia >= 0 ? 'txt-ok' : 'txt-bad'}">${fmtBs(ganancia)}</span>`, { extra: '<small>Sobre frascos vendidos</small>', icono: 'bx-trending-up', color: 'success' });
+    if (!$('[data-tab="inicio"]').hidden) renderInicio();
 
     $('#sin-productos').hidden = inv.length > 0;
     $('#tabla-productos tbody').innerHTML = inv.map((p) => `
@@ -887,6 +941,228 @@
     await cargarAdmins();
   }
 
+  // ================= Inicio (panel) =================
+  async function cargarDosisRecientes() {
+    const desde = sumarDias(hoyISO(), -190);
+    const { data, error } = await sb.from('registros')
+      .select('fecha_registro, dosis_mg').gte('fecha_registro', desde).order('fecha_registro');
+    if (!confirmarConError(error)) return;
+    state.dosisRecientes = data;
+  }
+
+  function opcionesGrafico({ apilado = false, leyenda = true } = {}) {
+    const texto = cssVar('--muted') || '#74788d';
+    const rejilla = cssVar('--border') || '#eff2f7';
+    return {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: leyenda, position: 'bottom', labels: { color: texto, boxWidth: 12, font: { family: 'Poppins' } } },
+        tooltip: { titleFont: { family: 'Poppins' }, bodyFont: { family: 'Poppins' } },
+      },
+      scales: {
+        x: { stacked: apilado, grid: { display: false }, ticks: { color: texto, font: { family: 'Poppins', size: 11 } } },
+        y: { stacked: apilado, beginAtZero: !apilado ? false : true, grid: { color: rejilla }, ticks: { color: texto, precision: 0, font: { family: 'Poppins', size: 11 } } },
+      },
+    };
+  }
+
+  let periodoGrafico = 'semana';
+
+  function renderInicio() {
+    const hoy = hoyISO();
+    let deHoy = 0, atrasadas = 0, comprar = 0;
+    state.pacientes.forEach((p) => {
+      if (p.ultimo) {
+        const d = diasEntre(hoy, p.ultimo.proxima_dosis);
+        if (d === 0) deHoy++; else if (d < 0) atrasadas++;
+      }
+      if (estadoFrasco(p).cls === 'bad') comprar++;
+    });
+    const stock = state.inventario.reduce((a, p) => a + p.stock, 0);
+    const regs = state.dosisRecientes || [];
+    const hace7 = sumarDias(hoy, -6);
+
+    $('#kpi-pacientes').textContent = state.pacientes.length;
+    $('#kpi-semana').textContent = regs.filter((r) => fechaLocal(r.fecha_registro) >= hace7).length;
+
+    $('#dash-stats').innerHTML =
+      stat('Dosis para hoy', deHoy, { icono: 'bx-calendar-event' }) +
+      stat('Dosis atrasadas', atrasadas, { icono: 'bx-time-five', color: 'danger' }) +
+      stat('Deben comprar', comprar, { icono: 'bx-cart', color: 'warning' }) +
+      stat('Frascos en stock', stock, { icono: 'bx-package', color: 'success' });
+
+    // Ganancia del mes
+    const mes = hoy.slice(0, 7);
+    const ventasMes = state.ventas.filter((v) => fechaLocal(v.fecha_venta).slice(0, 7) === mes);
+    const ingresos = ventasMes.reduce((a, v) => a + Number(v.total), 0);
+    const costo = ventasMes.reduce((a, v) => a + v.frascos * Number(v.costo_unitario), 0);
+    const ganancia = ingresos - costo;
+    const margen = ingresos > 0 ? Math.round((ganancia / ingresos) * 100) : 0;
+    $('#mes-ganancia').textContent = fmtBs(ganancia);
+    $('#mes-detalle').textContent = `${ventasMes.reduce((a, v) => a + v.frascos, 0)} frasco(s) vendidos · ${fmtBs(ingresos)} en ventas`;
+    graficar('grafico-dona', {
+      type: 'doughnut',
+      data: {
+        labels: ['Ganancia', 'Costo'],
+        datasets: [{ data: ingresos > 0 ? [Math.max(ganancia, 0), costo] : [0, 1], backgroundColor: ['#556ee6', cssVar('--border') || '#eff2f7'], borderWidth: 0 }],
+      },
+      options: { responsive: false, cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: ingresos > 0 } } },
+      plugins: [{
+        id: 'centro',
+        afterDraw(c) {
+          const { ctx, chartArea: a } = c;
+          ctx.save();
+          ctx.font = '600 16px Poppins, sans-serif';
+          ctx.fillStyle = cssVar('--heading') || '#343a40';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(`${margen}%`, (a.left + a.right) / 2, (a.top + a.bottom) / 2 - 6);
+          ctx.font = '400 10px Poppins, sans-serif';
+          ctx.fillStyle = cssVar('--muted') || '#74788d';
+          ctx.fillText('margen', (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 12);
+          ctx.restore();
+        },
+      }],
+    });
+
+    renderGraficoDosis();
+  }
+
+  // Barras apiladas: cantidad de dosis aplicadas por semana o mes, separadas por mg
+  function renderGraficoDosis() {
+    const hoy = hoyISO();
+    const cubetas = [];
+    if (periodoGrafico === 'semana') {
+      const lunes = lunesDe(hoy);
+      for (let i = 7; i >= 0; i--) {
+        const ini = sumarDias(lunes, -7 * i);
+        cubetas.push({ clave: ini, etiqueta: fmtFecha(ini).slice(0, 5) });
+      }
+    } else {
+      const { y, m } = partes(hoy);
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(Date.UTC(y, m - 1 - i, 1));
+        cubetas.push({
+          clave: d.toISOString().slice(0, 7),
+          etiqueta: d.toLocaleDateString('es-BO', { month: 'short', timeZone: 'UTC' }).replace('.', ''),
+        });
+      }
+    }
+    const claveDe = (iso) => (periodoGrafico === 'semana' ? lunesDe(iso) : iso.slice(0, 7));
+    const conteo = new Map();       // dosis → (cubeta → cantidad)
+    (state.dosisRecientes || []).forEach((r) => {
+      const k = claveDe(fechaLocal(r.fecha_registro));
+      const dosis = r.dosis_mg ? `${Number(r.dosis_mg)} mg` : 'Sin mg';
+      if (!conteo.has(dosis)) conteo.set(dosis, new Map());
+      const fila = conteo.get(dosis);
+      fila.set(k, (fila.get(k) || 0) + 1);
+    });
+    const dosisOrdenadas = [...conteo.keys()].sort((a, b) => parseFloat(a) - parseFloat(b));
+    graficar('grafico-dosis', {
+      type: 'bar',
+      data: {
+        labels: cubetas.map((c) => c.etiqueta),
+        datasets: dosisOrdenadas.map((dosis, i) => ({
+          label: dosis,
+          data: cubetas.map((c) => conteo.get(dosis).get(c.clave) || 0),
+          backgroundColor: PALETA[i % PALETA.length],
+          borderRadius: 2, barPercentage: .45,
+        })),
+      },
+      options: opcionesGrafico({ apilado: true }),
+    });
+  }
+
+  // ================= Notificaciones push =================
+  const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const esInstalada = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let swRegistro = null;
+
+  async function registrarServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    try { swRegistro = await navigator.serviceWorker.register('sw.js'); } catch (_) { swRegistro = null; }
+  }
+
+  function claveAplicacion(base64) {
+    const relleno = '='.repeat((4 - (base64.length % 4)) % 4);
+    const raw = atob((base64 + relleno).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  }
+
+  async function estadoNotificaciones() {
+    const est = $('#notif-estado'), btn = $('#btn-notif'), prueba = $('#btn-notif-prueba');
+    btn.hidden = true; prueba.hidden = true;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      est.textContent = esIOS && !esInstalada()
+        ? 'En iPhone primero instala la app: en Safari toca Compartir (□↑) → "Agregar a pantalla de inicio" y ábrela desde ese ícono.'
+        : 'Este navegador no permite notificaciones.';
+      return;
+    }
+    if (!swRegistro || !cfg.VAPID_PUBLIC_KEY) { est.textContent = 'Las notificaciones no están disponibles en este momento.'; return; }
+    const sub = await swRegistro.pushManager.getSubscription();
+    if (sub && Notification.permission === 'granted') {
+      est.textContent = '✅ Activadas en este dispositivo. Cada mañana recibirás la lista de pacientes con dosis.';
+      btn.innerHTML = '<i class="bx bx-bell-off"></i> Desactivar';
+      btn.className = 'btn';
+      btn.dataset.modo = 'off';
+      btn.hidden = false;
+      prueba.hidden = false;
+    } else if (Notification.permission === 'denied') {
+      est.textContent = 'Las notificaciones están bloqueadas. Actívalas en Ajustes → Notificaciones del dispositivo.';
+    } else {
+      est.textContent = 'Recibe cada mañana a qué pacientes les toca la tirzepatida, quiénes están atrasados y quiénes deben comprar frasco.';
+      btn.innerHTML = '<i class="bx bx-bell"></i> Activar en este dispositivo';
+      btn.className = 'btn primary';
+      btn.dataset.modo = 'on';
+      btn.hidden = false;
+    }
+  }
+
+  async function alternarNotificaciones() {
+    const btn = $('#btn-notif');
+    if (btn.dataset.modo === 'on') {
+      // En iPhone el permiso debe pedirse directamente al tocar el botón
+      const permiso = await Notification.requestPermission();
+      if (permiso !== 'granted') { toast('No se otorgó el permiso de notificaciones', 'warn'); return estadoNotificaciones(); }
+      btn.disabled = true;
+      try {
+        const sub = await swRegistro.pushManager.subscribe({
+          userVisibleOnly: true, applicationServerKey: claveAplicacion(cfg.VAPID_PUBLIC_KEY),
+        });
+        const j = sub.toJSON();
+        const { error } = await sb.from('push_suscripciones').upsert({
+          endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+          dispositivo: esIOS ? 'iPhone/iPad' : navigator.userAgent.slice(0, 120),
+        });
+        if (error) throw error;
+        toast('Notificaciones activadas');
+      } catch (e) {
+        toast(mensajeError(e), 'error');
+      }
+      btn.disabled = false;
+    } else {
+      const sub = await swRegistro.pushManager.getSubscription();
+      if (sub) {
+        await sb.from('push_suscripciones').delete().eq('endpoint', sub.endpoint);
+        await sub.unsubscribe();
+      }
+      toast('Notificaciones desactivadas en este dispositivo');
+    }
+    estadoNotificaciones();
+  }
+
+  async function enviarPrueba() {
+    const b = $('#btn-notif-prueba');
+    b.disabled = true;
+    const { data, error } = await sb.functions.invoke('aviso-diario', { body: { prueba: true } });
+    b.disabled = false;
+    if (error) {
+      let msg = error.message;
+      try { msg = (await error.context.json()).error || msg; } catch (_) { /* sin cuerpo */ }
+      return toast(mensajeError({ message: msg }), 'error');
+    }
+    toast(data.enviados ? 'Notificación de prueba enviada' : 'No se pudo enviar: vuelve a activar las notificaciones', data.enviados ? 'ok' : 'warn');
+  }
+
   // ================= Próximas dosis =================
   function renderDosis() {
     const lista = state.pacientes
@@ -1017,6 +1293,16 @@
     $('#form-invitar').addEventListener('submit', invitarAdmin);
     alClic('#tabla-admins tbody', 'data-del-admin', quitarAdmin);
 
+    // Inicio y notificaciones
+    $$('[data-go-btn]').forEach((b) => b.addEventListener('click', () => irA(b.dataset.goBtn)));
+    $$('#seg-periodo button').forEach((b) => b.addEventListener('click', () => {
+      periodoGrafico = b.dataset.periodo;
+      $$('#seg-periodo button').forEach((x) => x.classList.toggle('active', x === b));
+      renderGraficoDosis();
+    }));
+    $('#btn-notif').addEventListener('click', alternarNotificaciones);
+    $('#btn-notif-prueba').addEventListener('click', enviarPrueba);
+
     $$('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
     $('#btn-exportar').addEventListener('click', exportarCSV);
 
@@ -1025,7 +1311,7 @@
       if (evento === 'SIGNED_OUT') {
         detenerVigilancia();
         Object.assign(state, { esDuenia: false, pacientes: [], actual: null, registros: [], ventasPaciente: [],
-          inventario: [], compras: [], ventas: [], admins: [] });
+          inventario: [], compras: [], ventas: [], admins: [], dosisRecientes: [] });
         $$('dialog[open]').forEach((d) => d.close());
         setTimeout(() => enrutar(null), 0);
       }
@@ -1043,6 +1329,7 @@
     }
     sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
     enlazarEventos();
+    registrarServiceWorker();
     if (errorEnlace) {
       history.replaceState(null, '', urlBase());
       toast(/expired|invalid/i.test(errorEnlace) ? 'El enlace del correo venció o ya fue usado. Pide uno nuevo.' : errorEnlace, 'error');

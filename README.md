@@ -90,3 +90,13 @@ python -m http.server 5500
 
 ### Administradores
 En la pestaña **Administradores** (solo la dueña la ve) escribes el correo de la persona. Le llega un correo para crear su contraseña y queda con acceso completo. Desde ahí también puedes quitarle el acceso.
+
+---
+
+## Parte 3: aviso diario por notificación (7:00 a. m.)
+
+- Base de datos: ejecutar [`supabase/03_notificaciones.sql`](supabase/03_notificaciones.sql) y crear en Vault el secreto `cron_secret`.
+- Función: `supabase functions deploy aviso-diario --no-verify-jwt --use-api`. Necesita los secretos `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET` y `APP_URL`.
+- La clave pública VAPID va en `js/config.js`. La privada **nunca** se sube al repositorio.
+
+**Activar en el iPhone (iOS 16.4 o superior):** abre la app en Safari → Compartir (□↑) → **Agregar a pantalla de inicio** → abre la app desde ese ícono → pestaña **Próximas dosis** → **Activar en este dispositivo** → Permitir.
