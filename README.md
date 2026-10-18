@@ -71,3 +71,22 @@ python -m http.server 5500
 - **Plan gratuito de Supabase:** el proyecto se **pausa después de 7 días sin uso**. Se reactiva desde el panel de Supabase y no se pierden los datos. El plan gratuito no incluye copias de seguridad automáticas, así que usa **Exportar CSV** de vez en cuando.
 - **Altura:** cada registro guarda la altura que tenía el paciente en ese momento. Si después editas la altura, los registros nuevos calcularán el IMC con el valor actualizado.
 - **Recuperar contraseña:** desde el panel de Supabase, en **Authentication → Users → Send password recovery**.
+
+---
+
+## Parte 2: frascos, inventario y más administradores
+
+- **Base de datos:** después de `schema.sql`, ejecuta también [`supabase/02_inventario_y_admins.sql`](supabase/02_inventario_y_admins.sql).
+- **Función para invitar administradores:** se despliega con
+  `supabase functions deploy invitar-admin --project-ref <ref> --use-api`
+  (código en [`supabase/functions/invitar-admin`](supabase/functions/invitar-admin/index.ts)).
+
+### Cómo funciona el control de frascos
+1. **Inventario → Nuevo producto:** por ejemplo "Tirzepatida 10 mg", con 10 mg por frasco, 4 frascos por caja y el precio de venta.
+2. **Inventario → Registrar compra:** cajas y/o frascos sueltos más el costo total. El sistema calcula el costo por frasco y suma el stock.
+3. **Ficha del paciente → Vender frasco:** el frasco sale del stock y sus mg pasan al saldo del paciente.
+4. **Registrar peso y dosis (en mg):** cada dosis de tirzepatida se descuenta del saldo del paciente, a partir de su primera compra.
+5. El sistema indica si al paciente le **quedan dosis**, si le **queda 1 dosis** o si **debe comprar**.
+
+### Administradores
+En la pestaña **Administradores** (solo la dueña la ve) escribes el correo de la persona. Le llega un correo para crear su contraseña y queda con acceso completo. Desde ahí también puedes quitarle el acceso.

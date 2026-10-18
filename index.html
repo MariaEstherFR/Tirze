@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="css/styles.css?v=4">
+  <link rel="stylesheet" href="css/styles.css?v=5">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js?v=4"></script>
-  <script src="js/app.js?v=4" defer></script>
+  <script src="js/config.js?v=5"></script>
+  <script src="js/app.js?v=5" defer></script>
 </head>
 <body>
 
@@ -71,6 +71,23 @@
         <input type="password" name="password" required autocomplete="current-password">
       </label>
       <button class="btn primary block" type="submit">Ingresar</button>
+      <p class="small"><a href="#" id="link-olvide">¿Olvidaste tu contraseña?</a></p>
+    </form>
+  </section>
+
+  <!-- ============ Crear / cambiar contraseña (invitación o recuperación) ============ -->
+  <section data-view="password" class="center-screen" hidden>
+    <form id="form-password" class="card auth-card" autocomplete="on">
+      <div class="brand">🔑</div>
+      <h1>Crea tu contraseña</h1>
+      <p class="muted" id="password-email"></p>
+      <label>Nueva contraseña (mínimo 8 caracteres)
+        <input type="password" name="password" required minlength="8" autocomplete="new-password">
+      </label>
+      <label>Repetir contraseña
+        <input type="password" name="password2" required minlength="8" autocomplete="new-password">
+      </label>
+      <button class="btn primary block" type="submit">Guardar contraseña</button>
     </form>
   </section>
 
@@ -78,7 +95,7 @@
   <section data-view="denied" class="center-screen" hidden>
     <div class="card auth-card">
       <h1>Acceso no autorizado</h1>
-      <p class="muted">Esta cuenta no es la administradora de la aplicación.</p>
+      <p class="muted">Esta cuenta no es administradora de la aplicación.</p>
       <button class="btn" data-action="logout">Cerrar sesión</button>
     </div>
   </section>
@@ -96,6 +113,8 @@
     <nav class="tabs">
       <button data-go="pacientes" class="active">Pacientes</button>
       <button data-go="dosis">Próximas dosis</button>
+      <button data-go="inventario">Inventario</button>
+      <button data-go="admins" id="tab-admins" hidden>Administradores</button>
     </nav>
 
     <main class="container">
@@ -110,7 +129,7 @@
         <div class="card flush">
           <table id="tabla-pacientes" class="tabla clickable">
             <thead>
-              <tr><th>CI</th><th>Paciente</th><th>Edad</th><th>Último peso</th><th>IMC</th><th>Próxima dosis</th></tr>
+              <tr><th>CI</th><th>Paciente</th><th>Edad</th><th>Último peso</th><th>IMC</th><th>Próxima dosis</th><th>Frasco</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -127,11 +146,75 @@
         <div class="card flush">
           <table id="tabla-dosis" class="tabla clickable">
             <thead>
-              <tr><th>Próxima dosis</th><th>Estado</th><th>Paciente</th><th>Medicamento</th><th>Última dosis</th></tr>
+              <tr><th>Próxima dosis</th><th>Estado</th><th>Paciente</th><th>Medicamento</th><th>Frasco</th></tr>
             </thead>
             <tbody></tbody>
           </table>
           <p id="sin-dosis" class="vacio" hidden>Todavía no hay dosis registradas.</p>
+        </div>
+      </section>
+
+      <!-- ----- Inventario ----- -->
+      <section data-tab="inventario" hidden>
+        <div id="inv-resumen" class="stats"></div>
+
+        <div class="toolbar">
+          <h3>Productos y stock</h3>
+          <div class="acciones">
+            <button id="btn-nuevo-producto" class="btn">+ Nuevo producto</button>
+            <button id="btn-nueva-compra" class="btn primary">+ Registrar compra</button>
+          </div>
+        </div>
+        <div class="card flush">
+          <table id="tabla-productos" class="tabla">
+            <thead>
+              <tr><th>Producto</th><th>mg / frasco</th><th>Frascos / caja</th><th>Stock</th><th>Costo prom.</th><th>Precio venta</th><th>Vendidos</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p id="sin-productos" class="vacio" hidden>Primero crea un producto, por ejemplo "Tirzepatida 10 mg".</p>
+        </div>
+
+        <div class="toolbar"><h3>Ventas a pacientes</h3></div>
+        <div class="card flush">
+          <table id="tabla-ventas" class="tabla">
+            <thead>
+              <tr><th>Fecha</th><th>Paciente</th><th>Producto</th><th>Frascos</th><th>Precio u.</th><th>Total</th><th>Ganancia</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p id="sin-ventas" class="vacio" hidden>Aún no hay ventas. Se registran desde la ficha de cada paciente.</p>
+        </div>
+
+        <div class="toolbar"><h3>Compras</h3></div>
+        <div class="card flush">
+          <table id="tabla-compras" class="tabla">
+            <thead>
+              <tr><th>Fecha</th><th>Producto</th><th>Cajas</th><th>Frascos</th><th>Costo total</th><th>Costo / frasco</th><th>Proveedor</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p id="sin-compras" class="vacio" hidden>Aún no registraste compras.</p>
+        </div>
+      </section>
+
+      <!-- ----- Administradores (solo dueña) ----- -->
+      <section data-tab="admins" hidden>
+        <div class="card">
+          <h2>Administradores</h2>
+          <p class="muted">Los administradores pueden ver y editar pacientes, dosis, inventario y ventas.
+            Solo tú, como dueña, puedes agregarlos o quitarlos.</p>
+          <form id="form-invitar" class="invitar">
+            <input type="email" name="email" required placeholder="correo@ejemplo.com" autocomplete="off">
+            <button class="btn primary" type="submit">Invitar administrador</button>
+          </form>
+          <p class="muted small">Le llegará un correo para crear su contraseña. Si ya tenía cuenta, solo se le da acceso.</p>
+        </div>
+        <div class="card flush">
+          <table id="tabla-admins" class="tabla">
+            <thead><tr><th>Correo</th><th>Rol</th><th>Desde</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
       </section>
 
@@ -154,7 +237,10 @@
 
         <div class="toolbar">
           <h3>Historial de registros</h3>
-          <button id="btn-nuevo-registro" class="btn primary">+ Registrar peso y dosis</button>
+          <div class="acciones">
+            <button id="btn-vender" class="btn">🧪 Vender frasco</button>
+            <button id="btn-nuevo-registro" class="btn primary">+ Registrar peso y dosis</button>
+          </div>
         </div>
         <div class="card flush">
           <table id="tabla-registros" class="tabla">
@@ -164,6 +250,17 @@
             <tbody></tbody>
           </table>
           <p id="sin-registros" class="vacio" hidden>Este paciente aún no tiene registros.</p>
+        </div>
+
+        <div class="toolbar"><h3>Frascos comprados</h3></div>
+        <div class="card flush">
+          <table id="tabla-ventas-paciente" class="tabla">
+            <thead>
+              <tr><th>Fecha</th><th>Producto</th><th>Frascos</th><th>mg</th><th>Total</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p id="sin-ventas-paciente" class="vacio" hidden>Este paciente aún no compró frascos.</p>
         </div>
       </section>
     </main>
@@ -218,8 +315,8 @@
         <label>Medicamento
           <input name="medicamento" required maxlength="100" list="lista-medicamentos" autocomplete="off">
         </label>
-        <label>Dosis
-          <input name="dosis" required maxlength="50" list="lista-dosis" autocomplete="off">
+        <label>Dosis (mg)
+          <input name="dosis_mg" type="text" required inputmode="decimal" list="lista-dosis" placeholder="Ej: 2.5" autocomplete="off">
         </label>
         <div class="calc">
           <span class="muted small">Fecha de registro</span>
@@ -230,9 +327,101 @@
           <strong id="reg-proxima"></strong>
         </div>
       </div>
+      <div id="reg-frasco" class="aviso" hidden></div>
       <div class="dlg-acciones">
         <button type="button" class="btn ghost" data-close>Cancelar</button>
         <button type="submit" class="btn primary">Guardar registro</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ Diálogo: producto ============ -->
+  <dialog id="dlg-producto">
+    <form id="form-producto" method="dialog">
+      <h2 id="dlg-producto-titulo">Nuevo producto</h2>
+      <label>Nombre
+        <input name="nombre" required maxlength="80" placeholder="Ej: Tirzepatida 10 mg" autocomplete="off">
+      </label>
+      <div class="grid2">
+        <label>mg por frasco
+          <input name="mg_por_frasco" type="text" required inputmode="decimal" placeholder="Ej: 10" autocomplete="off">
+        </label>
+        <label>Frascos por caja
+          <input name="frascos_por_caja" type="number" required min="1" step="1" value="1">
+        </label>
+        <label>Precio de venta por frasco (Bs)
+          <input name="precio_venta" type="text" required inputmode="decimal" placeholder="Ej: 450" autocomplete="off">
+        </label>
+      </div>
+      <div class="dlg-acciones">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ Diálogo: compra ============ -->
+  <dialog id="dlg-compra">
+    <form id="form-compra" method="dialog">
+      <h2>Registrar compra</h2>
+      <label>Producto
+        <select name="producto_id" required></select>
+      </label>
+      <div class="grid2">
+        <label>Cajas
+          <input name="cajas" type="number" min="0" step="1" value="0">
+        </label>
+        <label>Frascos sueltos
+          <input name="frascos_sueltos" type="number" min="0" step="1" value="0">
+        </label>
+        <label>Costo total pagado (Bs)
+          <input name="costo_total" type="text" required inputmode="decimal" placeholder="Ej: 2700" autocomplete="off">
+        </label>
+        <label>Fecha de compra
+          <input name="fecha" type="date" required>
+        </label>
+        <label>Proveedor (opcional)
+          <input name="proveedor" maxlength="100" autocomplete="off">
+        </label>
+        <div class="calc">
+          <span class="muted small">Total frascos · costo por frasco</span>
+          <strong id="compra-calc">—</strong>
+        </div>
+      </div>
+      <div class="dlg-acciones">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary">Guardar compra</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ Diálogo: venta ============ -->
+  <dialog id="dlg-venta">
+    <form id="form-venta" method="dialog">
+      <h2>Vender frasco</h2>
+      <p class="muted small" id="venta-paciente"></p>
+      <label>Producto
+        <select name="producto_id" required></select>
+      </label>
+      <div class="grid2">
+        <label>Cantidad de frascos
+          <input name="frascos" type="number" required min="1" step="1" value="1">
+        </label>
+        <label>Precio por frasco (Bs)
+          <input name="precio_unitario" type="text" required inputmode="decimal" autocomplete="off">
+        </label>
+        <div class="calc">
+          <span class="muted small">Total a cobrar</span>
+          <strong id="venta-total">—</strong>
+        </div>
+        <div class="calc">
+          <span class="muted small">El paciente tendrá</span>
+          <strong id="venta-saldo">—</strong>
+        </div>
+      </div>
+      <div class="dlg-acciones">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary">Registrar venta</button>
       </div>
     </form>
   </dialog>
@@ -244,10 +433,8 @@
     <option value="Dulaglutida (Trulicity)">
   </datalist>
   <datalist id="lista-dosis">
-    <option value="2.5 mg"><option value="5 mg"><option value="7.5 mg">
-    <option value="10 mg"><option value="12.5 mg"><option value="15 mg">
-    <option value="0.25 mg"><option value="0.5 mg"><option value="1 mg">
-    <option value="1.7 mg"><option value="2.4 mg">
+    <option value="2.5"><option value="5"><option value="7.5">
+    <option value="10"><option value="12.5"><option value="15">
   </datalist>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
