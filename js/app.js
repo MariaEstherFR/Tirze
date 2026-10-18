@@ -67,6 +67,22 @@
     return { txt: `En ${d} días`, cls: 'ok' };
   }
 
+  // "maria  de los ANGELES" → "Maria de los Angeles"
+  const PARTICULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e']);
+  function capitalizar(texto) {
+    return texto.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es')
+      .split(' ')
+      .map((p, i) => (i > 0 && PARTICULAS.has(p) ? p : p.charAt(0).toLocaleUpperCase('es') + p.slice(1)))
+      .join(' ');
+  }
+
+  // Acepta metros (1.72 / 1,72) o centímetros (172) y devuelve centímetros
+  function normalizarAltura(valor) {
+    const n = Number(String(valor).trim().replace(',', '.'));
+    if (!isFinite(n) || n <= 0) return NaN;
+    return n < 3 ? Math.round(n * 1000) / 10 : Math.round(n * 10) / 10;
+  }
+
   const chip = (o) => `<span class="chip ${o.cls}">${esc(o.txt)}</span>`;
 
   let toastTimer;
@@ -254,7 +270,16 @@
       f.altura_cm.value = p.altura_cm;
     }
     actualizarEdadPreview();
+    actualizarAlturaPreview();
     $('#dlg-paciente').showModal();
+  }
+
+  function actualizarAlturaPreview() {
+    const input = $('#form-paciente').altura_cm;
+    const cm = normalizarAltura(input.value);
+    const valida = cm >= 30 && cm <= 250;
+    input.setCustomValidity(!input.value || valida ? '' : 'Escribe la altura en metros (1.72) o en centímetros (172)');
+    $('#pac-altura-hint').textContent = valida ? `= ${fmtNum(cm)} cm (${fmtNum(cm / 100, 2)} m)` : '';
   }
 
   function actualizarEdadPreview() {
@@ -267,13 +292,14 @@
     const f = e.target;
     const id = f.dataset.id;
     const datos = {
-      nombre: f.nombre.value.trim(),
-      apellido: f.apellido.value.trim(),
+      nombre: capitalizar(f.nombre.value),
+      apellido: capitalizar(f.apellido.value),
       ci: f.ci.value.trim().toUpperCase(),
       fecha_nacimiento: f.fecha_nacimiento.value,
-      altura_cm: Number(f.altura_cm.value),
+      altura_cm: normalizarAltura(f.altura_cm.value),
     };
     if (datos.fecha_nacimiento > hoyISO()) return toast('La fecha de nacimiento no puede ser futura', 'error');
+    if (!(datos.altura_cm >= 30 && datos.altura_cm <= 250)) return toast('Altura no válida: usa metros (1.72) o centímetros (172)', 'error');
 
     ocupado(f, true);
     const { error } = id
@@ -506,6 +532,11 @@
 
     $('#form-paciente').addEventListener('submit', guardarPaciente);
     $('#form-paciente').fecha_nacimiento.addEventListener('input', actualizarEdadPreview);
+    $('#form-paciente').altura_cm.addEventListener('input', actualizarAlturaPreview);
+    ['nombre', 'apellido'].forEach((campo) => {
+      const input = $('#form-paciente')[campo];
+      input.addEventListener('blur', () => { input.value = capitalizar(input.value); });
+    });
     $('#form-registro').addEventListener('submit', guardarRegistro);
     $('#form-registro').peso_kg.addEventListener('input', actualizarIMCPreview);
     $$('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
