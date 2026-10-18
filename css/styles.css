@@ -118,7 +118,7 @@ code { background: var(--primary-soft); padding: .1em .35em; border-radius: 4px;
   display: flex; gap: 6px; width: fit-content; max-width: calc(100% - 32px);
   margin: 20px auto 0; padding: 6px; border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 80%, transparent);
-  backdrop-filter: blur(10px); box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: var(--shadow);
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 .tabs button {
@@ -224,7 +224,7 @@ dialog {
 }
 dialog[open] { animation: emerger .22s ease both; }
 @keyframes emerger { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
-dialog::backdrop { background: rgba(15, 23, 42, .45); backdrop-filter: blur(4px); }
+dialog::backdrop { background: rgba(15, 23, 42, .45); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 dialog { overflow: hidden; }
 dialog::before { content: ""; display: block; height: 6px; background: var(--grad); }
 dialog form { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
@@ -257,13 +257,39 @@ dialog h2 { color: var(--primary); }
 
 /* ---------- Móvil: tablas como tarjetas ---------- */
 @media (max-width: 720px) {
+  .container { padding: 12px; }
   .grid2 { grid-template-columns: 1fr; }
   .tabla thead { display: none; }
   .tabla, .tabla tbody, .tabla tr, .tabla td { display: block; width: 100%; }
   .tabla tr { padding: 10px 14px; border-bottom: 1px solid var(--border); }
-  .tabla td { border: 0; padding: 4px 0; display: flex; justify-content: space-between; gap: 12px; text-align: right; }
-  .tabla td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: .8rem; text-align: left; }
-  .tabla td:not([data-label]) { justify-content: flex-end; }
-  .toolbar input[type="search"] { max-width: none; }
+  .tabla td { border: 0; padding: 5px 0; text-align: right; overflow-wrap: anywhere; }
+  .tabla td[data-label]::before {
+    content: attr(data-label); float: left; margin-right: 12px;
+    color: var(--muted); font-size: .8rem; text-align: left; line-height: 1.8;
+  }
+  .toolbar input[type="search"] { max-width: none; min-width: 0; width: 100%; }
+  .toolbar > .btn, .toolbar .acciones { flex: 1 1 100%; }
+  .toolbar .acciones .btn { flex: 1; }
   .topbar-user span { display: none; }
+
+  /* Pestañas deslizables */
+  .tabs {
+    width: auto; max-width: none; margin: 12px 12px 0; overflow-x: auto;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { white-space: nowrap; flex: 0 0 auto; padding: 8px 14px; }
+
+  /* Tarjetas de resumen en 2 columnas */
+  .stats, #ficha-resumen, #inv-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .stat { padding: 14px; }
+  .stat strong { font-size: 1.2rem; }
+  .datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  dialog { width: calc(100% - 20px); max-height: calc(100dvh - 20px); overflow-y: auto; }
+  dialog form { padding: 18px; }
 }
+
+/* ---------- iPhone: zonas seguras (muesca / barra inferior) ---------- */
+.topbar { padding-top: max(14px, env(safe-area-inset-top)); }
+body { padding-bottom: env(safe-area-inset-bottom); }
